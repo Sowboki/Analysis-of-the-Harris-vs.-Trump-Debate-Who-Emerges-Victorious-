@@ -1,0 +1,140 @@
+---
+title: "DEBATE HARRIS ET TRUMP"
+author: "Amadou Moussa Sow"
+date: "2024-09-12"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cerulean
+    highlight: tango
+  
+---
+
+```{r setup, include=FALSE}
+# Cacher les warnings et les messages
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+# **Charger les bibliothèques nécessaires**
+```{r}
+library(udpipe)
+library(syuzhet)
+library(ggplot2)
+library(wordcloud)
+library(RColorBrewer)
+
+```
+
+# **traitement des données **
+```{r}
+# Charger le modèle UDPipe (assure-toi que le chemin est correct)
+model <- udpipe_load_model("./french-gsd-ud-2.5-191206.udpipe")  
+
+# Fonction pour nettoyer le texte et garder uniquement les mots de contenu
+clean_text <- function(text) {
+  # Analyser le texte avec le modèle UDPipe
+  annotations <- udpipe_annotate(model, x = text)
+  annotations_df <- as.data.frame(annotations)
+  
+  # Garder uniquement les mots de contenu (noms, verbes, adjectifs, adverbes)
+  content_words <- annotations_df[annotations_df$upos %in% c("NOUN", "VERB", "ADJ", "ADV"), ]
+  
+  # Récupérer les lemmes des mots et les combiner en une seule chaîne
+  cleaned_text <- paste(content_words$lemma, collapse = " ")
+  
+  return(cleaned_text)
+}
+
+# Fonction pour l'analyse des sentiments avec Syuzhet
+analyse_sentiments <- function(text) {
+  # Utiliser la fonction get_nrc_sentiment pour obtenir les sentiments en français
+  sentiments <- get_nrc_sentiment(text, language = "french")
+  
+  # Retourner les scores de sentiments
+  return(sentiments)
+}
+
+# Charger et nettoyer le fichier Harris
+harris_file <- "data/harris.txt"
+if (file.exists(harris_file)) {
+  harris_texte <- readLines(harris_file, warn = FALSE)
+  harris_texte_complet <- paste(harris_texte, collapse = "\n")
+  
+  # Nettoyer le texte de Harris
+  harris_cleaned_text <- clean_text(harris_texte_complet)
+  
+  # Sauvegarder le texte nettoyé dans un fichier CSV
+  harris_data <- data.frame(doc_id = 1, cleaned_text = harris_cleaned_text, stringsAsFactors = FALSE)
+  write.csv(harris_data, file = "harris_textes_cleaned.csv", row.names = FALSE)
+  
+  # Analyse des sentiments du texte de Harris
+  harris_sentiments <- analyse_sentiments(harris_cleaned_text)
+
+}
+
+# Charger et nettoyer le fichier Trump
+trump_file <- "data/trump.txt"
+if (file.exists(trump_file)) {
+  trump_texte <- readLines(trump_file, warn = FALSE)
+  trump_texte_complet <- paste(trump_texte, collapse = "\n")
+  
+  # Nettoyer le texte de Trump
+  trump_cleaned_text <- clean_text(trump_texte_complet)
+  
+  # Sauvegarder le texte nettoyé dans un fichier CSV
+  trump_data <- data.frame(doc_id = 1, cleaned_text = trump_cleaned_text, stringsAsFactors = FALSE)
+  
+  # Analyse des sentiments du texte de Trump
+  trump_sentiments <- analyse_sentiments(trump_cleaned_text)
+  
+  # Sauvegarder les résultats de l'analyse des sentiments dans un fichier CSV
+  write.csv(trump_sentiments, file = "trump_sentiments.csv", row.names = FALSE)
+}
+
+# Comparer les sentiments
+# Calculer la somme des sentiments pour Harris et Trump
+harris_sentiments_sum <- colSums(harris_sentiments)
+trump_sentiments_sum <- colSums(trump_sentiments)
+
+# Comparer les sentiments positifs et négatifs
+comparison <- data.frame(
+  Sentiment = names(harris_sentiments_sum),
+  Harris = harris_sentiments_sum,
+  Trump = trump_sentiments_sum
+)
+
+# Afficher la comparaison des sentiments
+print(comparison)
+
+# Trouver les indices des sentiments positifs et négatifs
+positive_index <- which(comparison$Sentiment == "positive")
+negative_index <- which(comparison$Sentiment == "negative")
+
+# Extraire les valeurs pour Harris et Trump sur les sentiments positifs et négatifs
+height_matrix <- as.matrix(comparison[c(positive_index, negative_index), 2:3])
+
+# Créer le barplot pour comparer les sentiments positifs et négatifs
+barplot(
+  height_matrix,
+  beside = TRUE,
+  col = c("blue", "red"),
+  main = "Comparaison des sentiments positifs et négatifs : Harris vs Trump",
+  names.arg = c("Harris", "Trump"),
+  legend = TRUE,
+  args.legend = list(x = "topright", inset = c(-0.1, 0), legend = c("Positive", "Negative"))
+)
+
+
+```
+# **interpretation**
+Les résultats de l'analyse des sentiments montrent que les deux candidats, Kamala Harris et Donald Trump, ont exprimé plus de sentiments négatifs que positifs durant le débat. Harris a généré 123 sentiments positifs contre 136 négatifs, tandis que Trump a affiché 113 sentiments positifs et 124 négatifs. Cela indique que, bien que les deux aient eu des interactions tendues, Harris présente une différence plus marquée entre ses émotions négatives et positives. En termes d'émotions spécifiques, Trump a montré plus de colère, d'anticipation et de peur, tandis que Harris a exprimé davantage de dégoût, de tristesse et de surprise.
+
+L'analyse des émotions révèle des profils émotionnels distincts pour chaque candidat. Harris a manifesté un niveau élevé de confiance, tandis que Trump a montré des émotions similaires, bien que légèrement inférieures. Ces différences émotionnelles peuvent influencer la perception du public et la tonalité générale du débat. En visualisant ces sentiments à travers un graphique, il devient possible de mieux comprendre les stratégies émotionnelles déployées par chacun, ce qui peut avoir un impact significatif sur les électeurs et leur réaction face aux messages des candidats.
+
+
+# **Conclusion**
+
+En conclusion, l'analyse des sentiments révèle que Kamala Harris a manifesté une approche émotionnelle plus variée et un nombre légèrement supérieur de sentiments positifs par rapport à Donald Trump durant le débat. Bien que les deux candidats aient exprimé davantage de sentiments négatifs, la capacité de Harris à aborder des émotions telles que la tristesse et le dégoût, couplée à une utilisation positive de certains thèmes, pourrait lui donner un avantage en termes de perception publique. Cette analyse suggère que Harris a réussi à toucher des préoccupations émotionnelles importantes, ce qui pourrait influencer favorablement son image auprès des électeurs. Cependant, l'impact final sur les résultats électoraux dépendra également d'autres dynamiques et contextes politiques.
+
